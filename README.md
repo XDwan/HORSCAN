@@ -15,7 +15,7 @@ Ensure the [Rust toolchain](https://rustup.rs/) (including `rustc` and `cargo`) 
 Clone the repository and build the project with a single set of commands:
 
 ```bash
-git clone [https://github.com/XDwan/HORSCAN.git](https://github.com/XDwan/HORSCAN.git)
+git clone https://github.com/XDwan/HORSCAN.git
 cd HORSCAN
 cargo build --release
 ```
