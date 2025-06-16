@@ -98,9 +98,18 @@ fn swap_blast_line_source(
     blast[i].source_end = temp_row.source_end;
     blast[i].source_mon = temp_row.source_mon;
     // 如果原来i行的target的mon还存在，则进行标记为DEL， 否则为两个 - - 标记为UNX
-    if blast[i].target_mon != "-" {
+    // 根据交换后 blast[i] 的新状态，重新判断其类型
+    if &blast[i].source_mon != "-" && &blast[i].target_mon != "-" {
+        // Source 和 Target 端都存在单体，这是一个 Mismatch
+        blast[i].align_type = "MIS".to_string();
+    } else if &blast[i].source_mon != "-" && &blast[i].target_mon == "-" {
+        // 只有 Source 端有单体，这是一个 Deletion
+        blast[i].align_type = "INS".to_string();
+    } else if &blast[i].source_mon == "-" && &blast[i].target_mon != "-" {
+        // 只有 Target 端有单体，这是一个 Insertion
         blast[i].align_type = "DEL".to_string();
     } else {
+        // Source 和 Target 端都是 "-", 这是一个无用的行
         blast[i].align_type = "UNX".to_string();
     }
     Ok(())
@@ -136,9 +145,18 @@ fn swap_blast_line_target(
     blast[i].target_end = temp_row.target_end;
     blast[i].target_mon = temp_row.target_mon.clone();
     // 如果原来i行的target的mon还存在，则进行标记为DEL， 否则为两个 - - 标记为UNX
-    if blast[i].target_mon != "-" {
+    // 根据交换后 blast[i] 的新状态，重新判断其类型
+    if &blast[i].source_mon != "-" && &blast[i].target_mon != "-" {
+        // Source 和 Target 端都存在单体，这是一个 Mismatch
+        blast[i].align_type = "MIS".to_string();
+    } else if &blast[i].source_mon != "-" && &blast[i].target_mon == "-" {
+        // 只有 Source 端有单体，这是一个 Deletion
         blast[i].align_type = "INS".to_string();
+    } else if &blast[i].source_mon == "-" && &blast[i].target_mon != "-" {
+        // 只有 Target 端有单体，这是一个 Insertion
+        blast[i].align_type = "DEL".to_string();
     } else {
+        // Source 和 Target 端都是 "-", 这是一个无用的行
         blast[i].align_type = "UNX".to_string();
     }
     Ok(())
@@ -165,7 +183,7 @@ pub fn optimize_blast_file(optimize_path: String) -> Result<(), HorScanError> {
             _ => {} // 忽略未知类型
         }
     }
-    println!("TypeCount: {:?}", type_count);
+    println!("Default Alignment: {:?}", type_count);
 
     for i in 0..blast.len() {
         if blast[i].align_type == "MTH" {
@@ -186,14 +204,14 @@ pub fn optimize_blast_file(optimize_path: String) -> Result<(), HorScanError> {
     }
 
     // 去除UNX行
-    blast.retain(|line| line.align_type != "UNX");
+    // blast.retain(|line| line.align_type != "UNX");
     // 统计optimize 后的结果
     let mut optimize_result = TypeCount {
         mth: 0,
         ins: 0,
         del: 0,
         mis: 0,
-    }; 
+    };
     for line in &blast {
         match line.align_type.as_str() {
             "MTH" => optimize_result.mth += 1,
@@ -203,7 +221,7 @@ pub fn optimize_blast_file(optimize_path: String) -> Result<(), HorScanError> {
             _ => {}
         }
     }
-    println!("optimize : {:?}", optimize_result); // 打印optimize 后的结果
+    println!("Optimize Alignment: {:?}", optimize_result); // 打印optimize 后的结果
 
     // 保存修改好的blast文件
     save_blast_file(&blast, optimize_path.clone())?;

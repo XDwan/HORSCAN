@@ -127,7 +127,7 @@ pub fn read_blast_file<P: AsRef<Path>>(path: P) -> Result<Vec<MonAlignmentRow>, 
         let align_type = parts[8].to_string();
 
         // 第四个字段保持String类型
-        let mon = parts[3].to_string();
+        // let mon = parts[3].to_string();
 
         rows.push(MonAlignmentRow {
             source,

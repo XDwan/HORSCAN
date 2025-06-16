@@ -1,8 +1,8 @@
 use crate::io::{read_bed_file, HorScanError, Mode, MonRow};
 use crate::optimize::optimize_blast_file;
 use std::fs::File;
-use std::io::{BufWriter, Write};
-
+use std::io::Write;
+// use std::io::{BufWriter, Write};
 pub fn horscan_main(
     source_bed_path: String,
     target_bed_path: String,
@@ -95,7 +95,7 @@ fn horscan_global_linear_score_alignment_low(
     }
 
     // 将连续的q或者t gap 的gap进行压缩
-    let mut last_path = 0;
+    // let mut last_path = 0;
 
     for i in 1..source_len {
         for j in 1..target_len {
@@ -104,8 +104,8 @@ fn horscan_global_linear_score_alignment_low(
             } else {
                 score_matrix[i - 1][j - 1] + mode.mismatch_score
             };
-            let mut q_gap_score = score_matrix[i - 1][j] + mode.gap_score;
-            let mut t_gap_socre = score_matrix[i][j - 1] + mode.gap_score;
+            let q_gap_score = score_matrix[i - 1][j] + mode.gap_score;
+            let t_gap_socre = score_matrix[i][j - 1] + mode.gap_score;
             // if last_path == 1 {
             //     q_gap_score = score_matrix[i - 1][j] + mode.gap_score / 2;
             // } else if last_path == 2 {
@@ -233,23 +233,9 @@ fn save_all_path(
             return Err(HorScanError::AlignmentError("未知的对齐类型".to_string()));
         }
         // 输出模式
-        writeln!(
-            file,
-            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
-            source_row.sample,
-            source_row.start,
-            source_row.end,
-            source_row.mon,
-            target_row.sample,
-            target_row.start,
-            target_row.end,
-            target_row.mon,
-            alignment_type,
-        )?;
-        // 调试模式
         // writeln!(
         //     file,
-        //     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+        //     "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
         //     source_row.sample,
         //     source_row.start,
         //     source_row.end,
@@ -259,26 +245,40 @@ fn save_all_path(
         //     target_row.end,
         //     target_row.mon,
         //     alignment_type,
-        //     path.0,
-        //     path.1,
-        //     path.2,
         // )?;
+        // 调试模式
+        writeln!(
+            file,
+            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+            source_row.sample,
+            source_row.start,
+            source_row.end,
+            source_row.mon,
+            target_row.sample,
+            target_row.start,
+            target_row.end,
+            target_row.mon,
+            alignment_type,
+            path.0,
+            path.1,
+            path.2,
+        )?;
     }
     Ok(())
 }
 
 // 将 score 保存为numpy能够直接打开的格式
-fn save_score_matrix(
-    score_matrix: &Vec<Vec<i32>>,
-    output_path: String,
-) -> Result<(), HorScanError> {
-    let file = File::create(output_path + ".mat")?;
-    let mut writer = BufWriter::new(file);
-    for row in score_matrix {
-        for score in row {
-            write!(writer, "{} ", score)?; // 使用空格分隔每个分数
-        }
-        writeln!(writer)?;
-    }
-    Ok(())
-}
+// fn save_score_matrix(
+//     score_matrix: &Vec<Vec<i32>>,
+//     output_path: String,
+// ) -> Result<(), HorScanError> {
+//     let file = File::create(output_path + ".mat")?;
+//     let mut writer = BufWriter::new(file);
+//     for row in score_matrix {
+//         for score in row {
+//             write!(writer, "{} ", score)?; // 使用空格分隔每个分数
+//         }
+//         writeln!(writer)?;
+//     }
+//     Ok(())
+// }
