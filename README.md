@@ -25,7 +25,7 @@ for satellite DNA.
 ### 1.2 Build from source
 
 ```bash
-git clone https://github.com/<your-org>/HORSCANv.git
+git clone https://github.com/XDwan/HORSCAN.git
 cd HORSCANv
 cargo build --release
 ```
