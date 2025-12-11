@@ -1,116 +1,288 @@
-# HORSCAN
+# HORSCANv: Structure-Aware Global Alignment for High-Order Repeat(HOR)
 
-**HORSCAN** is an innovative algorithm based on multi-level dynamic programming, specifically designed to identify structural variants at the Higher-Order Repeat (HOR) level in human centromeric regions.
+**HORSCAN** is a structure-aware global alignment tool designed to analyze
+higher-order repeat (HOR) patterns in human centromeric regions.
+
+Instead of aligning raw bases, HORSCANv operates on **monomer labels** and
+**HOR annotations**. It extends classical affine-gap alignment (Gotoh) into a
+**state-aware hierarchical dynamic programming** framework with a dedicated**HOR-Jump mechanism**, allowing it to:
+
+- Enforce **HOR-level structural consistency**,
+- Avoid non-biological **over-fragmented paths** in highly repetitive arrays,
+- Output interpretable **HOR-level structural variant (SV) events**.
+
+This makes HORSCANv both a **global aligner** and a **structural event parser**
+for satellite DNA.
 
 ---
 
-## ⚙️ Installation
+## 1. Installation
 
-### Prerequisites
+### 1.1 Prerequisites
 
-Ensure the [Rust toolchain](https://rustup.rs/) (including `rustc` and `cargo`) is installed on your system.
+- A recent [Rust toolchain](https://rustup.rs/) (including `rustc` and `cargo`).
 
-### Build from Source
-
-Clone the repository and build the project with a single set of commands:
+### 1.2 Build from source
 
 ```bash
-git clone https://github.com/XDwan/HORSCAN.git
-cd HORSCAN
+git clone https://github.com/<your-org>/HORSCANv.git
+cd HORSCANv
 cargo build --release
 ```
 
-The optimized executable will be available at `./target/release/HORSCAN`.
+The optimized executable will be generated at:
 
-For system-wide access, you can move the executable to a directory in your `$PATH`:
+```bash
+./target/release/HORSCAN
+```
+
+(Optional) Install to a directory in your `PATH`:
 
 ```bash
 sudo mv ./target/release/HORSCAN /usr/local/bin/
 ```
 
-## 🚀 Usage
+---
 
-### Command-line Arguments
+## 2. Input Data Model
 
-| Option                          | Shorthand                   | Description                                                      |
-| :------------------------------ | :-------------------------- | :--------------------------------------------------------------- |
-| `--source <SOURCE>`           | `-s <SOURCE>`             | **[Required]**Path to the source input BED file.                 |
-| `--target <TARGET>`           | `-t <TARGET>`             | **[Required]**Path to the target input BED file.                 |
-| `--output <OUTPUT>`           | `-o <OUTPUT>`             | **[Required]** Path for the output alignment file (extension `.alignment` added automatically).               |
-| `--mode <MATCH MISMATCH GAP>` | `-m <MATCH MISMATCH GAP>` | **[Required]** Scoring parameters. Provide **positive integers** (e.g., `10 4 2`).<br>Program treats Match as reward (+), Mismatch and Gap as penalties (-). |
+HORSCANv consumes **monomer-level** and **HOR-level** annotations for both
+source and target sequences.
 
-### 📄 Input File Format
+### 2.1 Monomer files
 
-Input files must be **tab-separated** text files in a 4-column BED-like format.
+Tab-separated, 4-column BED-like format:
 
-1. **Sample/Chromosome** : Identifier for the sequence (e.g., `SampleA#chrX`).
-2.  **Start**: Start coordinate (integer, **0-based, inclusive**).
-3.  **End**: End coordinate (integer, **0-based, exclusive**).
-4. **Monomer Label** : A string identifying the monomer unit.
+1. `sample` – sample / chromosome identifier (e.g. `CHM13#chrX`)
+2. `start` – 0-based inclusive coordinate
+3. `end`   – 0-based exclusive coordinate
+4. `label` – monomer label (e.g. `L1`, `D17Z1`)
 
-### Full Example
+Example:
 
-1. **Create example input files:**
-
-   ```bash
-   # Create source.bed (Sequence: A B D E F G H I J K)
-   echo -e "CHM13#chrX\t1000\t1170\tA\nCHM13#chrX\t1171\t1341\tB\nCHM13#chrX\t1342\t1512\tD\nCHM13#chrX\t1513\t1683\tE\nCHM13#chrX\t1684\t1854\tF\nCHM13#chrX\t1855\t2025\tG\nCHM13#chrX\t2026\t2196\tH\nCHM13#chrX\t2197\t2367\tI\nCHM13#chrX\t2368\t2538\tJ\nCHM13#chrX\t2539\t2709\tK" > source.bed
-
-   # Create target.bed (Sequence: A B C D E O G H J K)
-   echo -e "CHM1#chrX\t1000\t1170\tA\nCHM1#chrX\t1171\t1341\tB\nCHM1#chrX\t1342\t1512\tC\nCHM1#chrX\t1513\t1683\tD\nCHM1#chrX\t1684\t1854\tE\nCHM1#chrX\t1855\t2025\tO\nCHM1#chrX\t2026\t2196\tG\nCHM1#chrX\t2197\t2367\tH\nCHM1#chrX\t2368\t2538\tJ\nCHM1#chrX\t2539\t2709\tK" > target.bed
-   ```
-2. **Run HORSCAN:**
-
-   ```bash
-   # If HORSCAN is in your PATH
-   HORSCAN --source source.bed --target target.bed --output test --mode 10 4 2
-
-   # If running directly from the project directory
-   ./target/release/HORSCAN -s source.bed -t target.bed -o test -m 10 4 2
-   ```
-
-### 📋 Output File Format
-
-The output is a **tab-separated** file describing the pairwise alignment of monomers, with 9 columns.
-
-| Columns | Content          | Description                                                 |
-| :------ | :--------------- | :---------------------------------------------------------- |
-| 1-4     | Source Monomer   | `Sample`,`Start`,`End`,`Label`from the source file. |
-| 5-8     | Target Monomer   | `Sample`,`Start`,`End`,`Label`from the target file. |
-| 9       | Alignment Status | Alignment status relative to Source (MTH/MIS/INS/DEL). |
-
-
-
-### Example Output Explained
-
-Running the command above will produce an output file `test.alignment` with content similar to this:
-
-```
-CHM13#chrX	1000	1170	A	CHM1#chrX	1000	1170	A	MTH
-CHM13#chrX	1171	1341	B	CHM1#chrX	1171	1341	B	MTH
-CHM13#chrX	1171	1171	-	CHM1#chrX	1342	1512	C	INS
-CHM13#chrX	1342	1512	D	CHM1#chrX	1513	1683	D	MTH
-CHM13#chrX	1513	1683	E	CHM1#chrX	1684	1854	E	MTH
-CHM13#chrX	1684	1854	F	CHM1#chrX	1855	2025	O	MIS
-CHM13#chrX	1855	2025	G	CHM1#chrX	2026	2196	G	MTH
-CHM13#chrX	2026	2196	H	CHM1#chrX	2197	2367	H	MTH
-CHM13#chrX	2197	2367	I	CHM1#chrX	2197	2197	-	DEL
-CHM13#chrX	2368	2538	J	CHM1#chrX	2368	2538	J	MTH
-CHM13#chrX	2539	2709	K	CHM1#chrX	2539	2709	K	MTH
+```tsv
+CHM13#chrX	1000	1170	A
+CHM13#chrX	1171	1341	B
+CHM13#chrX	1342	1512	D
 ```
 
-* **Line 3 (INS):** A gap in the source is aligned to monomer `C` from the target, indicating an insertion of `C` in the target sequence.
-* **Line 6 (MIS):** Monomer `F` in the source aligns to a different monomer `O` in the target.
-* **Line 9 (DEL):** Monomer `I` in the source is aligned to a gap in the target, indicating a deletion of `I` from the target sequence.
+### 2.2 HOR annotation files
+
+Same 4-column format, but the label is a **HOR identifier**:
+
+1. `sample` – same as monomer file
+2. `start` – start of the HOR block
+3. `end`   – end of the HOR block
+4. `label` – HOR ID (e.g. `S1C1H1`, `HOR_1`)
+
+Each HOR block corresponds to a contiguous interval of monomer indices.
 
 ---
 
-## 💡 Future Improvements
+## 3. Command-Line Usage
 
-We are actively working on enhancing HORSCAN. Planned features include:
+### 3.1 Required arguments
 
-* **Visualization Module** : To generate dot plots and linear diagrams for intuitive representation of HOR alignments and variations.
-* **Seamless Integration** : Direct support for parsing outputs from standard centromere annotation tools like HiCAT and HORmon.
-* **VCF Output Format** : Implementation of VCF output for HOR-level structural variants, improving compatibility with downstream analysis pipelines.
-* **Performance Optimization** : Further performance gains through multi-threading and algorithmic enhancements.
-* **Enhanced HOR-aware Alignment** : Refinement of the core algorithm to better handle complex variations and improve annotation consistency across alignments.
+```bash
+HORSCAN \
+  --source <SOURCE_MONOMER_BED> \
+  --target <TARGET_MONOMER_BED> \
+  --source-hor <SOURCE_HOR_BED> \
+  --target-hor <TARGET_HOR_BED> \
+  --output <OUTPUT_PREFIX> \
+  --mon <M_match M_mismatch M_open M_extend> \
+  --hor <H_match H_mismatch H_open H_extend>
+```
+
+#### Scoring parameters
+
+- `--mon` / `-m` (micro-level, monomer scores):
+
+  - Four **positive** integers:
+    - `<MATCH> <MISMATCH> <OPEN> <EXTEND>`
+  - Internally interpreted as:
+    - match: `+MATCH`
+    - mismatch: `-MISMATCH`
+    - gap open: `-OPEN`
+    - gap extend: `-EXTEND`
+- `--hor` / `-h` (macro-level, HOR scores):
+
+  - Four **positive** integers:
+    - `<MATCH> <MISMATCH> <OPEN> <EXTEND>`
+  - Used as:
+    - HOR label match bonus: `+MATCH`
+    - HOR label mismatch penalty: `-MISMATCH`
+    - HOR indel penalty: `-(OPEN + L * EXTEND)`,
+      where `L` is the number of monomers in the HOR block.
+
+Practical examples:
+
+```bash
+-m 10 4 2 2   # monomer: match=10, mismatch=4, open=2, extend=2
+-h 20 10 1 1  # HOR:     match=20, mismatch=10, open=1, extend=1
+```
+
+### 3.2 Optional arguments / heuristics
+
+- `--hor-pair-band <INT>`Pre-filter candidate HOR pairs by diagonal distance (band width). Use `0` to disable.
+- `--relaxed`
+  Enable relaxed HOR pairing (label equivalence) instead of strict label match.
+
+---
+
+## 4. Example
+
+### 4.1 Minimal example files
+
+```bash
+# Source monomers: A B D
+cat > source.bed <<EOF
+CHM13#chrX	1000	1170	A
+CHM13#chrX	1171	1341	B
+CHM13#chrX	1342	1512	D
+EOF
+
+# Source HOR annotation
+echo -e "CHM13#chrX	1000	3420	HOR_1" > source_hor.bed
+
+# Target monomers: A B C D
+cat > target.bed <<EOF
+CHM1#chrX	1000	1170	A
+CHM1#chrX	1171	1341	B
+CHM1#chrX	1342	1512	C
+CHM1#chrX	1513	1683	D
+EOF
+
+# Target HOR annotation
+echo -e "CHM1#chrX	1000	5130	HOR_1" > target_hor.bed
+```
+
+### 4.2 Run HORSCANv
+
+```bash
+HORSCAN \
+  --source source.bed \
+  --target target.bed \
+  --source-hor source_hor.bed \
+  --target-hor target_hor.bed \
+  --output test_result \
+  -m 10 4 2 2 \
+  -h 20 10 1 1
+```
+
+This will create:
+
+- `test_result.alignment.tsv`
+- `test_result.hor.tsv`
+
+---
+
+## 5. Output Formats
+
+### 5.1 Monomer alignment file: `*.alignment.tsv`
+
+Row-wise monomer-level alignment:
+
+| Col  | Description                                              |
+| ---- | -------------------------------------------------------- |
+| 1–4 | Source monomer:`sample`, `start`, `end`, `label` |
+| 5–8 | Target monomer:`sample`, `start`, `end`, `label` |
+| 9    | Alignment status:`MTH`, `MIS`, `INS`, `DEL`      |
+| 10   | Source monomer index (0-based)                           |
+| 11   | Target monomer index (0-based)                           |
+
+Example:
+
+```tsv
+CHM13#chrX	1000	1170	A	CHM1#chrX	1000	1170	A	MTH	0	0
+CHM13#chrX	1171	1341	B	CHM1#chrX	1171	1341	B	MTH	1	1
+CHM13#chrX	1171	1171	-	CHM1#chrX	1342	1512	C	INS	1	2
+```
+
+- `INS`: insertion in target (gap on source side).
+
+### 5.2 HOR event file: `*.hor.tsv`
+
+HOR-level structural events:
+
+| Col    | Name           | Description                                                 |
+| ------ | -------------- | ----------------------------------------------------------- |
+| 1      | `event_type` | `MATCH`, `EXPANSION`, `CONTRACTION`, `COMPLEX`, ... |
+| 2–6   | Source info    | HOR label, monomer index range, bp coordinate range         |
+| 7–11  | Target info    | HOR label, monomer index range, bp coordinate range         |
+| 12     | Score          | Alignment score for this HOR block                          |
+| 13–16 | Stats          | Counts of match / mismatch / insert / delete within block   |
+
+---
+
+## 6. Algorithm Overview
+
+HORSCANv performs **global alignment on monomer labels**, while being aware of their grouping into HOR blocks.
+
+<p align="center">
+  <img src="image/Main-Affine.drawio.png" alt="Overview of micro–macro affine alignment with HOR-Jump" width="40%" />
+</p>
+
+In brief:
+
+- At the **micro level**, it runs an affine-gap alignment on the monomer label
+  sequences (similar to a standard Needleman–Wunsch + Gotoh model).
+- At the **macro level**, it allows "HOR-jumps" that align or skip entire HOR
+  blocks as single units, rather than breaking them into many tiny gaps.
+- The final output includes both monomer-wise alignment (`*.alignment.tsv`) and
+  HOR-level events (`*.hor.tsv`) that summarize expansions, contractions and
+  matches of HOR units.
+
+---
+
+## 7. Simulation and Benchmarking (Brief)
+
+We evaluated HORSCAN using **simulated centromeric datasets** generated by the
+HOREvolver framework (HOR-level expansions/contractions plus base-level noise),
+and compared it against generic tandem repeat aligners such as **UniAligner**.
+
+The key qualitative observations are:
+
+- HORSCANv produces **clean HOR-level events** with low fragmentation.
+- It better preserves the true copy-number changes (ΔCN) of HOR patterns along
+  the chromosome.
+
+Example baseline comparison plots on simulated datasets:
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="image/chr1_baseline.png" alt="Baseline comparison on chr1" width="100%" /><br/>
+      <sub>CHM13 chr1</sub>
+    </td>
+    <td align="center">
+      <img src="image/chrX_baseline.png" alt="Baseline comparison on chrX" width="100%" /><br/>
+      <sub>CHM13 chrX
+</sub>
+    </td>
+  </tr>
+</table>
+
+For full details of the simulation design, metrics and scripts, please refer to the separate HOREvolver / analysis repository and the method paper.
+
+---
+
+## 8. Repository Structure
+
+- `src/`
+  - `args.rs` – CLI argument parsing
+  - `io.rs` – I/O and BED-like parsing
+  - `align.rs` – core micro-level DP (Gotoh)
+  - `horscan.rs` – hierarchical DP and HOR-Jump integration
+  - `score.rs` – scoring utilities
+  - `types.rs` – shared data structures
+  - `main.rs` – program entry point
+- `test/` – small example datasets and regression scripts
+
+---
+
+## 9. License and Citation
+
+If you use HORSCANv in your work, please consider citing the
+corresponding method paper (once available).
+License information will be added here.
