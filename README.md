@@ -1,9 +1,9 @@
-# HORSCANv: Structure-Aware Global Alignment for High-Order Repeat (HOR)
+# HORSCAN: Structure-Aware Global Alignment for High-Order Repeat (HOR)
 
 **HORSCAN** is a structure-aware global alignment tool designed to analyze
 higher-order repeat (HOR) patterns in human centromeric regions.
 
-Instead of aligning raw bases, HORSCANv operates on **monomer labels** and
+Instead of aligning raw bases, HORSCAN operates on **monomer labels** and
 **HOR annotations**. It extends classical affine-gap alignment (Gotoh) into a
 **state-aware hierarchical dynamic programming** framework with a dedicated **HOR-Jump mechanism**, allowing it to:
 
@@ -11,18 +11,30 @@ Instead of aligning raw bases, HORSCANv operates on **monomer labels** and
 - Avoid non-biological **over-fragmented paths** in highly repetitive arrays,
 - Output interpretable **HOR-level structural variant (SV) events**.
 
-This makes HORSCANv both a **global aligner** and a **structural event parser**
+This makes HORSCAN both a **global aligner** and a **structural event parser**
 for satellite DNA.
 
 ---
 
-## 1. Installation
+## 1. Overview
 
-### 1.1 Prerequisites
+HORSCAN performs structure-aware global alignment of centromeric HOR arrays at two levels:
+
+- **Monomer level** – affine-gap alignment on monomer labels.
+- **HOR level** – HOR-aware jumps and block-level events (expansion, contraction, insertion, deletion).
+
+It consumes BED-like monomer / HOR annotations and produces both detailed monomer-wise alignments
+(`*.alignment.tsv`) and HOR-level event summaries (`*.hor.tsv`).
+
+---
+
+## 2. Installation and Usage
+
+### 2.1 Prerequisites
 
 - A recent [Rust toolchain](https://rustup.rs/) (including `rustc` and `cargo`).
 
-### 1.2 Build from source
+### 2.2 Build from source
 
 ```bash
 git clone https://github.com/XDwan/HORSCAN.git
@@ -42,11 +54,9 @@ The optimized executable will be generated at:
 sudo mv ./target/release/HORSCAN /usr/local/bin/
 ```
 
----
+### 2.3 Input data model
 
-## 2. Input Data Model
-
-HORSCANv consumes **monomer-level** and **HOR-level** annotations for both
+HORSCAN consumes **monomer-level** and **HOR-level** annotations for both
 source and target sequences.
 
 ### 2.1 Monomer files
@@ -77,9 +87,11 @@ Same 4-column format, but the label is a **HOR identifier**:
 
 Each HOR block corresponds to a contiguous interval of monomer indices.
 
----
+```tsv
+CHM13#chrX	1000	1512	HORA
+```
 
-## 3. Command-Line Usage
+### 2.4 Command-line interface
 
 ### 3.1 Required arguments
 
@@ -131,11 +143,9 @@ Practical examples:
 - `--debug`
   Emit detailed debug information.
 
----
+### 2.5 Examples
 
-## 4. Example
-
-### 4.1 Run HORSCANv on a toy example
+### 4.1 Run HORSCAN on a toy example
 
 Assuming you already have four BED-like files prepared as described above:
 
@@ -173,9 +183,7 @@ Notes:
 - The chrX test may need ~6.5 GiB RAM.
 - Outputs are written with prefix `test/test_chrX` by default.
 
----
-
-## 5. Output Formats
+### 2.6 Output formats
 
 ### 5.1 Monomer alignment file: `*.alignment.tsv`
 
@@ -211,7 +219,7 @@ CHM13#chrX	1342	1512	-	CHM1#chrX	1342	1512	C	INS	0	3
 CHM13#chrX	1513	1683	D	CHM1#chrX	1683	1683	-	DEL	3	0
 ```
 
-### 5.2 HOR event file: `*.hor.tsv`
+### 2.6.2 HOR event file: `*.hor.tsv`
 
 HOR-level structural events. Each row summarizes one **HOR block-level event** (match, insertion, deletion, etc.) together with aggregated monomer statistics and shift information.
 
@@ -238,9 +246,46 @@ Per-column meaning (grouped by concept):
 
 ---
 
-## 6. Algorithm Overview
+## 3. Result Visualization
 
-HORSCANv performs **global alignment on monomer labels**, while being aware of their grouping into HOR blocks.
+HORSCAN provides an interactive browser-based viewer for exploring alignment results.
+
+### 3.1 Online viewer
+
+You can use the latest viewer at:
+
+- https://xdwan.github.io/HORSCAN/
+
+Typical workflow:
+
+1. Run HORSCAN to obtain an alignment (e.g. using the bundled chrX test):
+  ```bash
+  bash test/run_HORSCAN.sh
+  ```
+  This will generate `*.alignment.tsv` and `*.hor.tsv` under `test/`.
+2. Open the web viewer in a modern browser (Chrome / Firefox / Safari).
+3. Load files via the buttons at the top:
+  - **ALIGNMENT 📂**: select the monomer-level alignment file (e.g. `test/test_chrX.alignment.tsv`).
+  - **REFERENCE DATA 📂**: select the reference HOR BED file (e.g. target HOR BED).
+  - **QUERY DATA 📂**: select the query HOR BED file (e.g. source HOR BED).
+4. Use the main panel to explore:
+  - Scroll to zoom, drag horizontally to pan along the centromeric array.
+  - Toggle event types (Match / Mismatch / Insertion / Deletion, expansion / contraction, etc.)
+    to focus on specific structural patterns.
+
+An example screenshot of the alignment view:
+
+<p align="center">
+  <img src="image/alignment_truth.png" alt="Example HORSCAN alignment visualization" width="70%" />
+</p>
+
+---
+
+## 4. Core Algorithm and Evaluation
+
+### 4.1 Algorithm overview
+
+HORSCAN performs **global alignment on monomer labels**, while being aware of their grouping into HOR blocks.
 
 <p align="center">
   <img src="image/Main-Affine.drawio.png" alt="Overview of micro–macro affine alignment with HOR-Jump" width="40%" />
@@ -257,9 +302,7 @@ In brief:
   HOR-level events (`*.hor.tsv`) that summarize expansions, contractions and
   matches of HOR units.
 
----
-
-## 7. Simulation and Benchmarking (Brief)
+### 4.2 Simulation and benchmarking (brief)
 
 We evaluated HORSCAN using **simulated centromeric datasets** generated by the
 HOREvolver framework (HOR-level expansions/contractions plus base-level noise),
@@ -286,11 +329,10 @@ Example baseline comparison plots on simulated datasets:
   </tr>
 </table>
 
-For full details of the simulation design, metrics and scripts, please refer to the separate HOREvolver / analysis repository and the method paper.
+For full details of the simulation design, metrics and scripts, please refer to
+the separate HOREvolver / analysis repository and the method paper.
 
----
-
-## 8. Repository Structure
+### 4.3 Repository structure
 
 - `src/`
   - `args.rs` – CLI argument parsing
@@ -302,10 +344,8 @@ For full details of the simulation design, metrics and scripts, please refer to 
   - `main.rs` – program entry point
 - `test/` – small example datasets and regression scripts
 
----
+### 4.4 License and citation
 
-## 9. License and Citation
-
-If you use HORSCANv in your work, please consider citing the
+If you use HORSCAN in your work, please consider citing the
 corresponding method paper (once available).
 License information will be added here.
