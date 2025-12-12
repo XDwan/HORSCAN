@@ -1,11 +1,11 @@
-# HORSCANv: Structure-Aware Global Alignment for High-Order Repeat(HOR)
+# HORSCANv: Structure-Aware Global Alignment for High-Order Repeat (HOR)
 
 **HORSCAN** is a structure-aware global alignment tool designed to analyze
 higher-order repeat (HOR) patterns in human centromeric regions.
 
 Instead of aligning raw bases, HORSCANv operates on **monomer labels** and
 **HOR annotations**. It extends classical affine-gap alignment (Gotoh) into a
-**state-aware hierarchical dynamic programming** framework with a dedicated**HOR-Jump mechanism**, allowing it to:
+**state-aware hierarchical dynamic programming** framework with a dedicated **HOR-Jump mechanism**, allowing it to:
 
 - Enforce **HOR-level structural consistency**,
 - Avoid non-biological **over-fragmented paths** in highly repetitive arrays,
@@ -26,7 +26,7 @@ for satellite DNA.
 
 ```bash
 git clone https://github.com/XDwan/HORSCAN.git
-cd HORSCANv
+cd HORSCAN
 cargo build --release
 ```
 
@@ -89,14 +89,14 @@ HORSCAN \
   --target <TARGET_MONOMER_BED> \
   --source-hor <SOURCE_HOR_BED> \
   --target-hor <TARGET_HOR_BED> \
-  --output <OUTPUT_PREFIX> \
-  --mon <M_match M_mismatch M_open M_extend> \
-  --hor <H_match H_mismatch H_open H_extend>
+  --output-prefix <OUTPUT_PREFIX> \
+  -m <M_match M_mismatch M_open M_extend> \
+  -h <H_match H_mismatch H_open H_extend>
 ```
 
 #### Scoring parameters
 
-- `--mon` / `-m` (micro-level, monomer scores):
+- `-m` (micro-level, monomer scores):
 
   - Four **positive** integers:
     - `<MATCH> <MISMATCH> <OPEN> <EXTEND>`
@@ -105,7 +105,7 @@ HORSCAN \
     - mismatch: `-MISMATCH`
     - gap open: `-OPEN`
     - gap extend: `-EXTEND`
-- `--hor` / `-h` (macro-level, HOR scores):
+- `-h` (macro-level, HOR scores):
 
   - Four **positive** integers:
     - `<MATCH> <MISMATCH> <OPEN> <EXTEND>`
@@ -119,45 +119,28 @@ Practical examples:
 
 ```bash
 -m 10 4 2 2   # monomer: match=10, mismatch=4, open=2, extend=2
--h 20 10 1 1  # HOR:     match=20, mismatch=10, open=1, extend=1
+-h 20 10 1 1  # HOR:  match=20, mismatch=10, open=1, extend=1
 ```
 
 ### 3.2 Optional arguments / heuristics
 
-- `--hor-pair-band <INT>`Pre-filter candidate HOR pairs by diagonal distance (band width). Use `0` to disable.
+- `--hor-pair-band <INT>`
+  Pre-filter candidate HOR pairs by diagonal distance (band width). Use `0` to disable.
 - `--relaxed`
   Enable relaxed HOR pairing (label equivalence) instead of strict label match.
+- `--debug`
+  Emit detailed debug information.
 
 ---
 
 ## 4. Example
 
-### 4.1 Minimal example files
+### 4.1 Run HORSCANv on a toy example
 
-```bash
-# Source monomers: A B D
-cat > source.bed <<EOF
-CHM13#chrX	1000	1170	A
-CHM13#chrX	1171	1341	B
-CHM13#chrX	1342	1512	D
-EOF
+Assuming you already have four BED-like files prepared as described above:
 
-# Source HOR annotation
-echo -e "CHM13#chrX	1000	3420	HOR_1" > source_hor.bed
-
-# Target monomers: A B C D
-cat > target.bed <<EOF
-CHM1#chrX	1000	1170	A
-CHM1#chrX	1171	1341	B
-CHM1#chrX	1342	1512	C
-CHM1#chrX	1513	1683	D
-EOF
-
-# Target HOR annotation
-echo -e "CHM1#chrX	1000	5130	HOR_1" > target_hor.bed
-```
-
-### 4.2 Run HORSCANv
+- Monomer-level annotations: `source.bed`, `target.bed`
+- HOR-level annotations: `source_hor.bed`, `target_hor.bed`
 
 ```bash
 HORSCAN \
@@ -165,7 +148,7 @@ HORSCAN \
   --target target.bed \
   --source-hor source_hor.bed \
   --target-hor target_hor.bed \
-  --output test_result \
+  --output-prefix test_result \
   -m 10 4 2 2 \
   -h 20 10 1 1
 ```
@@ -175,43 +158,83 @@ This will create:
 - `test_result.alignment.tsv`
 - `test_result.hor.tsv`
 
+### 4.2 Run bundled chrX test (recommended quick check)
+
+The repository includes a ready-to-run chrX test dataset under `test/`.
+
+On Linux (bash):
+
+```bash
+bash test/run_HORSCAN.sh
+```
+
+Notes:
+
+- The chrX test may need ~6.5 GiB RAM.
+- Outputs are written with prefix `test/test_chrX` by default.
+
 ---
 
 ## 5. Output Formats
 
 ### 5.1 Monomer alignment file: `*.alignment.tsv`
 
-Row-wise monomer-level alignment:
+Row-wise monomer-level alignment. Each row corresponds to **one aligned monomer pair or a gap**.
 
-| Col  | Description                                              |
-| ---- | -------------------------------------------------------- |
-| 1–4 | Source monomer:`sample`, `start`, `end`, `label` |
-| 5–8 | Target monomer:`sample`, `start`, `end`, `label` |
-| 9    | Alignment status:`MTH`, `MIS`, `INS`, `DEL`      |
-| 10   | Source monomer index (0-based)                           |
-| 11   | Target monomer index (0-based)                           |
+| Col | Name          | Description |
+| --- | ------------- | ----------- |
+| 1   | `src.sample`  | Source sample / chromosome ID (copied from source monomer BED) |
+| 2   | `src.start`   | Source monomer start (0-based, inclusive)                      |
+| 3   | `src.end`     | Source monomer end (0-based, exclusive)                        |
+| 4   | `src.label`   | Source monomer label                                           |
+| 5   | `tgt.sample`  | Target sample / chromosome ID (copied from target monomer BED) |
+| 6   | `tgt.start`   | Target monomer start (0-based, inclusive)                      |
+| 7   | `tgt.end`     | Target monomer end (0-based, exclusive)                        |
+| 8   | `tgt.label`   | Target monomer label                                           |
+| 9   | `status`      | Monomer-level alignment type: `MTH`, `MIS`, `INS`, `DEL`       |
+| 10  | `src.mi`      | Source monomer index (0-based, including sentinel; `0` = gap)  |
+| 11  | `tgt.mi`      | Target monomer index (0-based, including sentinel; `0` = gap)  |
+
+Notes on `status`:
+
+- `MTH`: monomer label match (aligned monomer pair with same label).
+- `MIS`: monomer label mismatch.
+- `INS`: insertion in target (source side is a gap; `src.mi = 0`).
+- `DEL`: deletion in target (target side is a gap; `tgt.mi = 0`).
 
 Example:
 
 ```tsv
-CHM13#chrX	1000	1170	A	CHM1#chrX	1000	1170	A	MTH	0	0
-CHM13#chrX	1171	1341	B	CHM1#chrX	1171	1341	B	MTH	1	1
-CHM13#chrX	1171	1171	-	CHM1#chrX	1342	1512	C	INS	1	2
+CHM13#chrX	1000	1170	A	CHM1#chrX	1000	1170	A	MTH	1	1
+CHM13#chrX	1171	1341	B	CHM1#chrX	1342	1512	C	MIS	2	2
+CHM13#chrX	1342	1512	-	CHM1#chrX	1342	1512	C	INS	0	3
+CHM13#chrX	1513	1683	D	CHM1#chrX	1683	1683	-	DEL	3	0
 ```
-
-- `INS`: insertion in target (gap on source side).
 
 ### 5.2 HOR event file: `*.hor.tsv`
 
-HOR-level structural events:
+HOR-level structural events. Each row summarizes one **HOR block-level event** (match, insertion, deletion, etc.) together with aggregated monomer statistics and shift information.
 
-| Col    | Name           | Description                                                 |
-| ------ | -------------- | ----------------------------------------------------------- |
-| 1      | `event_type` | `MATCH`, `EXPANSION`, `CONTRACTION`, `COMPLEX`, ... |
-| 2–6   | Source info    | HOR label, monomer index range, bp coordinate range         |
-| 7–11  | Target info    | HOR label, monomer index range, bp coordinate range         |
-| 12     | Score          | Alignment score for this HOR block                          |
-| 13–16 | Stats          | Counts of match / mismatch / insert / delete within block   |
+Header (fixed, tab-separated):
+
+```tsv
+event	src.label	src.hor.id	src.mi.start	src.mi.end	src.bp.start	src.bp.end	tgt.label	tgt.hor.id	tgt.mi.start	tgt.mi.end	tgt.bp.start	tgt.bp.end	score	mth	mis	ins	del	mean.shift	shift.std	shift.consistent
+```
+
+Per-column meaning (grouped by concept):
+
+| Concept           | Header fields                                   | Description |
+| ----------------- | ----------------------------------------------- | ----------- |
+| Event type        | `event`                                         | HOR-level event type. Typical values include `MATCH`, `INS`, `DEL` (and possibly extended types such as `EXPANSION` / `CONTRACTION` / `COMPLEX` depending on analysis). |
+| Source HOR id     | `src.label`, `src.hor.id`                       | Identity of the HOR block on the source side (label from source HOR BED and an internal numeric ID). `src.hor.id` is `NA` if there is no corresponding HOR. |
+| Source monomer span | `src.mi.start`, `src.mi.end`                  | Monomer index range covered on the source side (0-based, inclusive), using the same index system as `src.mi` in `*.alignment.tsv` (including sentinel). |
+| Source bp span    | `src.bp.start`, `src.bp.end`                    | Genomic coordinate range of the event on the source side, derived from the underlying monomer BED records. |
+| Target HOR id     | `tgt.label`, `tgt.hor.id`                       | Identity of the HOR block on the target side (label from target HOR BED and an internal numeric ID). `tgt.hor.id` is `NA` if there is no corresponding HOR. |
+| Target monomer span | `tgt.mi.start`, `tgt.mi.end`                  | Monomer index range covered on the target side (0-based, inclusive), aligned with `tgt.mi` in `*.alignment.tsv`. |
+| Target bp span    | `tgt.bp.start`, `tgt.bp.end`                    | Genomic coordinate range of the event on the target side. |
+| Event score       | `score`                                         | Total alignment score for this HOR event (micro-level monomer score + HOR-level match/indel contributions). |
+| Monomer statistics| `mth`, `mis`, `ins`, `del`                      | Counts of monomer matches, mismatches, insertions and deletions (`MTH`/`MIS`/`INS`/`DEL`) within this HOR event. |
+| Shift statistics  | `mean.shift`, `shift.std`, `shift.consistent`   | Summary of relative genomic shift between source and target within `MATCH` events: mean shift, its standard deviation, and a binary flag (`1`/`0`) indicating whether the shift is globally consistent. |
 
 ---
 
@@ -225,10 +248,11 @@ HORSCANv performs **global alignment on monomer labels**, while being aware of t
 
 In brief:
 
-- At the **micro level**, it runs an affine-gap alignment on the monomer label
-  sequences (similar to a standard Needleman–Wunsch + Gotoh model).
-- At the **macro level**, it allows "HOR-jumps" that align or skip entire HOR
-  blocks as single units, rather than breaking them into many tiny gaps.
+- At the **monomer level** (micro), it runs an affine-gap alignment on the
+  monomer label sequence (similar to a standard Needleman–Wunsch + Gotoh model).
+- At the **HOR level** (macro), it allows "HOR-jumps" that align or skip
+  entire HOR blocks as single units, rather than breaking them into many tiny
+  gaps.
 - The final output includes both monomer-wise alignment (`*.alignment.tsv`) and
   HOR-level events (`*.hor.tsv`) that summarize expansions, contractions and
   matches of HOR units.
@@ -243,7 +267,7 @@ and compared it against generic tandem repeat aligners such as **UniAligner**.
 
 The key qualitative observations are:
 
-- HORSCANv produces **clean HOR-level events** with low fragmentation.
+- HORSCAN produces **clean HOR-level events** with low fragmentation.
 - It better preserves the true copy-number changes (ΔCN) of HOR patterns along
   the chromosome.
 
@@ -257,8 +281,7 @@ Example baseline comparison plots on simulated datasets:
     </td>
     <td align="center">
       <img src="image/chrX_baseline.png" alt="Baseline comparison on chrX" width="100%" /><br/>
-      <sub>CHM13 chrX
-</sub>
+      <sub>CHM13 chrX</sub>
     </td>
   </tr>
 </table>

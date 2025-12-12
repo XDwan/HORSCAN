@@ -1,0 +1,29 @@
+type	source_idx	delta	s_idx	source_block_idx	s_idx_start	s_idx_end
+MATCH	1.0	0				
+MATCH	3.0	0				
+MATCH	5.0	0				
+MATCH	6.0	0				
+MATCH	7.0	0				
+MATCH	9.0	0				
+MATCH	10.0	0				
+MATCH	11.0	0				
+EXPANSION	13.0	5				
+INTRA_DUP		1	7443.0	13.0		
+INTRA_DEL		-1	7548.0	13.0		
+MATCH	14.0	0				
+INTRA_SHUFFLE		0		14.0	7583.0	8541.0
+MATCH	15.0	0				
+INTRA_DUP		1	8992.0	15.0		
+EXPANSION	16.0	7				
+MATCH	17.0	0				
+MATCH	18.0	0				
+INTRA_INV		0		18.0	10620.0	10632.0
+MATCH	19.0	0				
+MATCH	21.0	0				
+MATCH	23.0	0				
+MATCH	25.0	0				
+MATCH	26.0	0				
+INTRA_DUP		1	16815.0	26.0		
+MATCH	27.0	0				
+MATCH	29.0	0				
+MATCH	31.0	0				
